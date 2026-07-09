@@ -2,10 +2,10 @@
 # =============================================================================
 # cava-manager.sh
 # Cava Solace — Therapeutic Sonic Visualizer — Manager Script
-# Version: 2.7.1
+# Version: 2.8.0
 # Status: 🟢 GOLD (Production-Ready) — confirmed on real Pi OS touchscreen,
 #   side-by-side with AirPlay Solace with room to spare
-# Last updated: 2026-06-23
+# Last updated: 2026-07-07
 #
 # Self-contained — generates all required files on Install:
 #   • cava-solace  (GTK3 Python GUI)       → ~/.local/bin/cava-solace
@@ -14,7 +14,8 @@
 # No companion files required. Distribute and run this single script.
 #
 # cava — Cross-platform Audio Visualizer
-#   Source: https://github.com/karlstav/cava
+#   Source:   https://github.com/karlstav/cava
+#   Releases: https://github.com/karlstav/cava/releases
 #
 # Features:
 #   • Builds cava from source (autotools — fast compile on Pi 4)
@@ -22,6 +23,9 @@
 #   • Installs Cava Solace GUI — therapeutic palette generator + visualizer launcher
 #   • Uninstall cleanly removes all installed files
 #   • Rollback on failure — restores previous state on error or power loss
+#   • v2.8.0: GitHub Releases API version checker (get_latest_cava_release) —
+#     status screen and Update both show installed vs. latest tagged release.
+#     No separate version-tracking file needed since cava --version self-reports.
 #
 # Requirements:
 #   - Raspberry Pi OS Trixie (Debian 13) arm64
@@ -2355,11 +2359,37 @@ check_terminal_colour() {
 # =============================================================================
 # STATUS CHECK
 # =============================================================================
+# =============================================================================
+# VERSION CHECK HELPER
+# Ref: https://github.com/karlstav/cava/releases
+# cava self-reports its built version via --version, so unlike snes9x/
+# shairport there's no separate "installed version" tracking file needed —
+# just compare that against GitHub's latest tagged release.
+# =============================================================================
+get_latest_cava_release() {
+    local tag
+    tag=$(curl -fsSL --connect-timeout 8 \
+        "https://api.github.com/repos/karlstav/cava/releases/latest" \
+        2>/dev/null \
+        | grep -oP '"tag_name":\s*"\K[^"]+' | head -1)
+    [[ -n "$tag" ]] && echo "$tag" || echo "unknown"
+}
+
 cava_status() {
     if [[ -f "$CAVA_BIN" ]]; then
         CAVA_VER=$("$CAVA_BIN" --version 2>&1 | head -1 2>/dev/null) || CAVA_VER=""
         [[ -z "$CAVA_VER" ]] && CAVA_VER="installed"
         echo -e "  cava:      ${GREEN}installed${NC}  ($CAVA_VER)"
+
+        local LATEST_TAG
+        LATEST_TAG=$(get_latest_cava_release)
+        if [[ "$LATEST_TAG" == "unknown" ]]; then
+            echo -e "  updates:   ${YELLOW}could not reach GitHub${NC}"
+        elif [[ "$CAVA_VER" == *"$LATEST_TAG"* ]]; then
+            echo -e "  updates:   ${GREEN}up to date${NC}  (latest: $LATEST_TAG)"
+        else
+            echo -e "  updates:   ${YELLOW}⚡ latest release is $LATEST_TAG${NC}  (Update rebuilds from current master)"
+        fi
     else
         echo -e "  cava:      ${YELLOW}not installed${NC}"
     fi
@@ -2477,6 +2507,19 @@ do_install() {
 do_update() {
     if ! command -v cava &>/dev/null && [[ ! -f "$CAVA_BIN" ]]; then
         error "cava is not installed. Run Install first."
+    fi
+
+    local CURRENT_VER LATEST_TAG
+    CURRENT_VER=$("$CAVA_BIN" --version 2>&1 | head -1 2>/dev/null) || CURRENT_VER="unknown"
+    info "Currently installed: $CURRENT_VER"
+    info "Checking GitHub for the latest tagged release…"
+    LATEST_TAG=$(get_latest_cava_release)
+    if [[ "$LATEST_TAG" == "unknown" ]]; then
+        warn "Could not reach GitHub — proceeding with a rebuild from current master anyway."
+    elif [[ "$CURRENT_VER" == *"$LATEST_TAG"* ]]; then
+        info "Already on the latest tagged release ($LATEST_TAG) — rebuilding will refresh from master anyway."
+    else
+        info "Latest tagged release on GitHub: $LATEST_TAG"
     fi
 
     # Begin rollback scope — backs up existing binary before overwriting
