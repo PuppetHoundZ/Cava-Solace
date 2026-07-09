@@ -1,6 +1,6 @@
 # Cava Solace — Therapeutic Sonic Visualizer
 
-A self-contained manager script that builds [`cava`](https://github.com/karlstav/cava) from source and installs **Cava Solace**, a GTK3 touch GUI that generates science-based calming colour palettes and launches the visualizer — designed for Raspberry Pi OS.
+A self-contained manager script that builds [`cava`](https://github.com/karlstav/cava) from source and installs **Cava Solace**, a GTK3 touch GUI for Cava that generates science-based calming colour palettes and launches the visualizer — designed for Raspberry Pi OS.
 
 Cava Solace pairs naturally with [AirPlay Solace](https://github.com/PuppetHoundZ/shairport-solace) — both fit side-by-side on an 800×480 touchscreen simultaneously.
 
